@@ -52,10 +52,7 @@ export interface IUserNotificationRepository {
 
   findAllNotifications(): Promise<UserNotification[]>;
   findByUserId(userId: number): Promise<UserNotification | null>;
-  updateNotification(
-    id: number,
-    notificationData: Partial<UserNotification>,
-  ): Promise<void>;
+  updateScheduleNotification(id: number, scheduleAt: Date): Promise<void>;
 }
 
 export const IUserNotificationRepository = Symbol(

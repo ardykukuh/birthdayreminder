@@ -1,5 +1,6 @@
 import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import * as moment from 'moment-timezone';
+import { scheduleBirthdayNotifications } from '../../../common/utils';
 import { InjectQueue } from '@nestjs/bull';
 import { Queue } from 'bull';
 import { IUserRepository } from '../repositories/user.repo.interface';
@@ -19,33 +20,18 @@ export class UserNotificationService implements IUserNotificationService {
   // Method to create birthday notifications at 9 AM local time for each user
   async createUser(data: CreateUserDto): Promise<void> {
     const user = await this.userRepository.createUser(data);
-    // const users = await this.userRepository.findAllUsers();
-    const currentYear = moment().year();
-
-    // for (const user of users) {
-    const userBirthday = moment(user.birthday).year(currentYear);
-    // Schedule for 9 AM in the user's timezone
-    const userTimezone = user.timezone;
-    const notificationTime = userBirthday
-      .tz(userTimezone)
-      .set({ hour: 9, minute: 0, second: 0 });
-
-    // If the birthday has passed for this year, schedule for next year
-    if (notificationTime.isBefore(moment())) {
-      notificationTime.add(1, 'year');
-    }
-
+    const util = await scheduleBirthdayNotifications(user);
     // Create a pending notification for the scheduled time
     await this.notificationRepository.createNotification({
       user: user,
       type: 'birthday',
       status: 'pending',
-      scheduledAt: notificationTime.toDate(),
+      scheduledAt: util.scheduleAt,
     });
     await this.recoverUnsentMessages();
 
     console.log(
-      `Scheduled birthday notification for ${user.firstName} at ${notificationTime.format()}`,
+      `Scheduled birthday notification for ${user.firstName} at ${util.scheduleFormat}`,
     );
   }
 
@@ -56,36 +42,19 @@ export class UserNotificationService implements IUserNotificationService {
     await this.userRepository.updateUser(id, updateUserDto);
 
     const updatedUser = await this.userRepository.findById(id);
+    const notification = await this.notificationRepository.findByUserId(id);
 
     if (updatedUser) {
-      // const users = await this.userRepository.findAllUsers();
-      const currentYear = moment().year();
-
-      // for (const user of users) {
-      const userBirthday = moment(updatedUser.birthday).year(currentYear);
-      // Schedule for 9 AM in the user's timezone
-      const userTimezone = updatedUser.timezone;
-      const notificationTime = userBirthday
-        .tz(userTimezone)
-        .set({ hour: 9, minute: 0, second: 0 });
-
-      // If the birthday has passed for this year, schedule for next year
-      if (notificationTime.isBefore(moment())) {
-        notificationTime.add(1, 'year');
-      }
-      console.log('aa', notificationTime.toDate());
-
+      const util = await scheduleBirthdayNotifications(updatedUser);
       // Update a pending notification for the scheduled time
-      await this.notificationRepository.updateNotification(id, {
-        user: updatedUser,
-        type: 'birthday',
-        status: 'pending',
-        scheduledAt: notificationTime.toDate(),
-      });
+      await this.notificationRepository.updateScheduleNotification(
+        notification.id,
+        util.scheduleAt,
+      );
       await this.recoverUnsentMessages();
 
       console.log(
-        `Updated user notification for ${updatedUser.firstName} at ${notificationTime.format()}`,
+        `Updated user notification for ${updatedUser.firstName} at ${util.scheduleFormat}`,
       );
     }
 

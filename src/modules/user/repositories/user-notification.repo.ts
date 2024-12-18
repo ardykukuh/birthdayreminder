@@ -40,11 +40,11 @@ export class UserNotificationRepository implements IUserNotificationRepository {
   async findAllNotifications(): Promise<UserNotification[]> {
     return this.userNotificationRepository.find();
   }
-  async updateNotification(
+  async updateScheduleNotification(
     id: number,
-    notificationData: Partial<UserNotification>,
+    scheduledAt: Date,
   ): Promise<void> {
-    await this.userNotificationRepository.update(id, notificationData);
+    await this.userNotificationRepository.update(id, { scheduledAt });
   }
   async deleteNotification(
     notificationData: Partial<UserNotification>,
