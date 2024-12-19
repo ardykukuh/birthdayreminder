@@ -19,51 +19,68 @@ export class UserNotificationService implements IUserNotificationService {
 
   // Method to create birthday notifications at 9 AM local time for each user
   async createUser(data: CreateUserDto): Promise<void> {
-    const user = await this.userRepository.createUser(data);
-    const util = await scheduleBirthdayNotifications(user);
-    // Create a pending notification for the scheduled time
-    await this.notificationRepository.createNotification({
-      user: user,
-      type: 'birthday',
-      status: 'pending',
-      scheduledAt: util.scheduleAt,
-    });
-    await this.recoverUnsentMessages();
+    try {
+      const user = await this.userRepository.createUser(data);
+      const util = await scheduleBirthdayNotifications(user);
+      // Create a pending notification for the scheduled time
+      await this.notificationRepository.createNotification({
+        user: user,
+        type: 'birthday',
+        status: 'pending',
+        scheduledAt: util.scheduleAt,
+      });
+      await this.recoverUnsentMessages();
 
-    console.log(
-      `Scheduled birthday notification for ${user.firstName} at ${util.scheduleFormat}`,
-    );
+      console.log(
+        `Scheduled birthday notification for ${user.firstName} at ${util.scheduleFormat}`,
+      );
+    } catch (error) {
+      console.error('Error creating User:', error.message);
+      throw new BadRequestException(
+        error.message || 'Failed to process create User',
+      );
+    }
   }
 
   async updateUser(
     id: number,
     updateUserDto: any,
   ): Promise<{ updated: boolean }> {
-    await this.userRepository.updateUser(id, updateUserDto);
+    try {
+      await this.userRepository.updateUser(id, updateUserDto);
 
-    const updatedUser = await this.userRepository.findById(id);
-    const notification = await this.notificationRepository.findByUserId(id);
+      const updatedUser = await this.userRepository.findById(id);
+      const notification = await this.notificationRepository.findByUserId(id);
 
-    if (updatedUser) {
-      const util = await scheduleBirthdayNotifications(updatedUser);
-      // Update a pending notification for the scheduled time
-      await this.notificationRepository.updateScheduleNotification(
-        notification.id,
-        util.scheduleAt,
-      );
-      await this.recoverUnsentMessages();
+      if (updatedUser) {
+        const util = await scheduleBirthdayNotifications(updatedUser);
+        // Update a pending notification for the scheduled time
+        await this.notificationRepository.updateScheduleNotification(
+          notification.id,
+          util.scheduleAt,
+        );
+        await this.recoverUnsentMessages();
 
-      console.log(
-        `Updated user notification for ${updatedUser.firstName} at ${util.scheduleFormat}`,
+        console.log(
+          `Updated user notification for ${updatedUser.firstName} at ${util.scheduleFormat}`,
+        );
+      }
+
+      return { updated: true };
+    } catch (error) {
+      console.error('Error updating User:', error.message);
+      throw new BadRequestException(
+        error.message || 'Failed to process update User',
       );
     }
-
-    return { updated: true };
   }
 
   async deleteUser(id: number): Promise<void> {
     try {
       const user = await this.userRepository.findById(id);
+      if (!user) {
+        throw new Error('User not found');
+      }
       await this.notificationRepository.deleteNotification({
         user: user,
       });
@@ -76,39 +93,46 @@ export class UserNotificationService implements IUserNotificationService {
     }
   }
   async recoverUnsentMessages(): Promise<void> {
-    const past24Hours = moment().subtract(24, 'hours'); // Customize the duration as needed
-    const unsentNotifications =
-      await this.notificationRepository.findUnsentSince(past24Hours);
+    try {
+      const past24Hours = moment().subtract(24, 'hours'); // Customize the duration as needed
+      const unsentNotifications =
+        await this.notificationRepository.findUnsentSince(past24Hours);
 
-    for (const notification of unsentNotifications) {
-      const delay = Math.max(
-        0,
-        moment(notification.scheduledAt).diff(moment()),
-      );
-
-      console.log(`Re-queueing notification ID ${notification.id}...`, delay);
-
-      // Check if a job with this ID already exists
-      const existingJob = await this.notificationQueue.getJob(
-        `notification-${notification.id}`,
-      );
-
-      if (existingJob) {
-        console.log(
-          `Removing existing job for notification ID ${notification.id}`,
+      for (const notification of unsentNotifications) {
+        const delay = Math.max(
+          0,
+          moment(notification.scheduledAt).diff(moment()),
         );
-        await existingJob.remove(); // Remove the existing job from the queue
+
+        console.log(`Re-queueing notification ID ${notification.id}...`, delay);
+
+        // Check if a job with this ID already exists
+        const existingJob = await this.notificationQueue.getJob(
+          `notification-${notification.id}`,
+        );
+
+        if (existingJob) {
+          console.log(
+            `Removing existing job for notification ID ${notification.id}`,
+          );
+          await existingJob.remove(); // Remove the existing job from the queue
+        }
+        await this.notificationQueue.add(
+          'send-notification',
+          { notificationId: notification.id },
+          {
+            delay,
+            jobId: `notification-${notification.id}`, // Ensures uniqueness by ID
+          },
+        );
+        console.log(
+          `Queued notification ID ${notification.id} with delay ${delay}ms`,
+        );
       }
-      await this.notificationQueue.add(
-        'send-notification',
-        { notificationId: notification.id },
-        {
-          delay,
-          jobId: `notification-${notification.id}`, // Ensures uniqueness by ID
-        },
-      );
-      console.log(
-        `Queued notification ID ${notification.id} with delay ${delay}ms`,
+    } catch (error) {
+      console.error('Error recovering Unsent Messages:', error.message);
+      throw new BadRequestException(
+        error.message || 'Failed to process recoverUnsentMessages',
       );
     }
   }

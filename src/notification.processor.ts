@@ -32,7 +32,7 @@ export class NotificationProcessor {
           'https://email-service.digitalenvision.com.au/send-email',
           {
             email: `${user.email}`,
-            message: `Hey, it's your birthday!`,
+            message: `Hey ${user.firstName} ${user.lastName}, it's your birthday!`,
           },
         );
 

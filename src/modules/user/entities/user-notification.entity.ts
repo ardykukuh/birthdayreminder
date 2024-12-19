@@ -22,7 +22,7 @@ export class UserNotification {
   userId: number;
 
   @Column({ type: 'varchar', nullable: false, default: 'pending' })
-  status: 'pending' | 'sent' | 'failed';
+  status: string;
 
   @CreateDateColumn()
   createdAt: Date;
