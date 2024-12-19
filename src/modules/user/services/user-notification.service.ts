@@ -14,7 +14,7 @@ export class UserNotificationService implements IUserNotificationService {
     @Inject(IUserNotificationRepository)
     private readonly notificationRepository: IUserNotificationRepository,
     @Inject(IUserRepository) private readonly userRepository: IUserRepository,
-    @InjectQueue('notification') private notificationQueue: Queue,
+    @InjectQueue('notifications') private notificationQueue: Queue,
   ) {}
 
   // Method to create birthday notifications at 9 AM local time for each user
@@ -86,8 +86,19 @@ export class UserNotificationService implements IUserNotificationService {
         moment(notification.scheduledAt).diff(moment()),
       );
 
-      console.log(`Re-queueing notification ID ${notification.id}...`);
+      console.log(`Re-queueing notification ID ${notification.id}...`, delay);
 
+      // Check if a job with this ID already exists
+      const existingJob = await this.notificationQueue.getJob(
+        `notification-${notification.id}`,
+      );
+
+      if (existingJob) {
+        console.log(
+          `Removing existing job for notification ID ${notification.id}`,
+        );
+        await existingJob.remove(); // Remove the existing job from the queue
+      }
       await this.notificationQueue.add(
         'send-notification',
         { notificationId: notification.id },

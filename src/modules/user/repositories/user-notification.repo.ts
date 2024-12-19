@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, MoreThan } from 'typeorm';
 import { UserNotification } from '../entities/user-notification.entity';
 import { IUserNotificationRepository } from './user-notification.repo.interface';
 
@@ -20,8 +20,8 @@ export class UserNotificationRepository implements IUserNotificationRepository {
   async findUnsentSince(since: moment.Moment): Promise<UserNotification[]> {
     return this.userNotificationRepository.find({
       where: [
-        { status: 'pending', scheduledAt: since.toDate() },
-        { status: 'failed', scheduledAt: since.toDate() },
+        { status: 'pending', scheduledAt: MoreThan(since.toDate()) },
+        { status: 'failed', scheduledAt: MoreThan(since.toDate()) },
       ],
     });
   }

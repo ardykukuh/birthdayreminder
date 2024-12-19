@@ -1,12 +1,12 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { Process } from '@nestjs/bull';
+import { Inject } from '@nestjs/common';
+import { Process, Processor } from '@nestjs/bull';
 import { Job } from 'bull';
 import { IUserNotificationRepository } from './modules/user/repositories/user-notification.repo.interface';
 import axios from 'axios';
 import { IUserRepository } from './modules/user/repositories/user.repo.interface';
 import { scheduleBirthdayNotifications } from './common/utils';
 
-@Injectable()
+@Processor('notifications')
 export class NotificationProcessor {
   constructor(
     @Inject(IUserNotificationRepository)
@@ -19,6 +19,8 @@ export class NotificationProcessor {
   async handleSendNotification(
     job: Job<{ notificationId: number }>,
   ): Promise<void> {
+    console.log(`Received job ${job.id}:`, job.data);
+
     const notification = await this.notificationRepository.findById(
       job.data.notificationId,
     );
@@ -29,7 +31,7 @@ export class NotificationProcessor {
         await axios.post(
           'https://email-service.digitalenvision.com.au/send-email',
           {
-            email: `${notification.user}`,
+            email: `${user.email}`,
             message: `Hey, it's your birthday!`,
           },
         );

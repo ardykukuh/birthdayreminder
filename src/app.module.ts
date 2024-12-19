@@ -10,6 +10,7 @@ import { UserNotificationRepository } from './modules/user/repositories/user-not
 import { IUserRepository } from './modules/user/repositories/user.repo.interface';
 import { IUserNotificationService } from './modules/user/services/user-notification.service.interface';
 import { IUserNotificationRepository } from './modules/user/repositories/user-notification.repo.interface';
+import { NotificationProcessor } from './notification.processor';
 
 @Module({
   imports: [
@@ -25,10 +26,11 @@ import { IUserNotificationRepository } from './modules/user/repositories/user-no
       redis: {
         host: 'localhost',
         port: 6379,
+        password: 'redis',
       },
     }),
     BullModule.registerQueue({
-      name: 'notification',
+      name: 'notifications',
       defaultJobOptions: {
         attempts: 5,
         backoff: {
@@ -42,6 +44,7 @@ import { IUserNotificationRepository } from './modules/user/repositories/user-no
   ],
   controllers: [UserController],
   providers: [
+    NotificationProcessor,
     {
       provide: IUserNotificationService,
       useClass: UserNotificationService,

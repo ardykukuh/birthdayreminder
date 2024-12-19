@@ -12,7 +12,6 @@ import { User } from '../entities/user.entity';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { IUserNotificationService } from '../services/user-notification.service.interface';
 import { IUserRepository } from '../repositories/user.repo.interface';
-import { UserNotificationRepository } from '../repositories/user-notification.repo';
 import { IUserNotificationRepository } from '../repositories/user-notification.repo.interface';
 import { UserNotification } from '../entities/user-notification.entity';
 
